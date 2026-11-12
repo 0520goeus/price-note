@@ -1,0 +1,42 @@
+name: 가격 기록
+on:
+  schedule:
+    - cron: "40 20 * * *"   # 매일 05:40 (한국 시간)
+  workflow_dispatch:
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: false
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: 가격 받아 적기
+        env:
+          DATA_KEY: ${{ secrets.DATA_KEY }}
+        run: python collect.py
+      - name: 기록 저장
+        run: |
+          git config user.name "price-bot"
+          git config user.email "price-bot@users.noreply.github.com"
+          git add data
+          git diff --cached --quiet || git commit -m "가격 기록 $(TZ=Asia/Seoul date +%F)"
+          git push
+      - name: 사이트 만들기
+        run: python build.py
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deploy
+        uses: actions/deploy-pages@v4
