@@ -178,7 +178,7 @@ def main():
     if allg: b.append('<section><h2>순위로 보기</h2><div class="cats"><a href="rise.html"><b>많이 오른 품목</b><span>기록 기간 동안의 상승률 순위</span></a><a href="gap.html"><b>어디가 쌀까</b><span>업태별 가격 차이가 큰 품목</span></a></div></section>')
     if CATS: b.append('<section><h2>종류별로 보기</h2><div class="cats">' + "".join(
         f'<a href="c/{c["slug"]}.html"><b>{esc(c["name"])}</b><span>{c["n"]}개 품목</span></a>' for c in CATS) + "</div></section>")
-    page("index.html", f"{SITE} | 생필품 가격, 지난주보다 올랐을까", f"{kday(DAY)} 조사 기준 생필품 {len(allg)}개의 전국 평균 판매가와 지난 조사 대비 변화.", "".join(b))
+    page("index.html", f"{SITE} | 생필품 가격, 지난 조사보다 올랐을까", f"{kday(DAY)} 조사 기준 생필품 {len(allg)}개의 전국 평균 판매가와 지난 조사 대비 변화.", "".join(b))
 
     for c in CATS:
         gs = [g for g in allg if g["slug"] == c["slug"]]
@@ -268,6 +268,8 @@ def main():
         with open(os.path.join(OUT, "ads.txt"), "w") as f:
             f.write(f"google.com, {CFG['adsense_client'].replace('ca-', '')}, DIRECT, f08c47fec0942fa0\n")
     open(os.path.join(OUT, ".nojekyll"), "w").close()
+    if re.match(r"^google[0-9a-f]+\.html$", CFG.get("google_file", "")):       # 구글 서치콘솔 소유 확인 파일
+        with open(os.path.join(OUT, CFG["google_file"]), "w") as f: f.write(f"google-site-verification: {CFG['google_file']}")
     if CFG.get("indexnow_key") and BASE:
         with open(os.path.join(OUT, CFG["indexnow_key"] + ".txt"), "w") as f: f.write(CFG["indexnow_key"])
         with open(os.path.join(OUT, "indexnow.json"), "w", encoding="utf-8") as f:
