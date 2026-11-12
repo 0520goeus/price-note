@@ -36,7 +36,7 @@ def stats(g):
     return {"cur": cur, "prev": prev, "d": d, "pct": (d / prev * 100) if prev else 0.0, "lo": lo, "hi": hi,
             "lo_day": next(x[0] for x in reversed(win) if x[1] == lo), "hi_day": next(x[0] for x in reversed(win) if x[1] == hi),
             "min": h[-1][2], "max": h[-1][3], "n": h[-1][4], "weeks": len(h),
-            "is_low": len(h) >= 6 and cur == lo and hi > lo, "fresh": h[-1][0] == DAY}
+            "is_low": len(h) >= 4 and cur == lo and hi > lo, "fresh": h[-1][0] == DAY}
 
 
 # ---------------------------------------------------------------- 그림
@@ -52,7 +52,7 @@ def spark(h, w=96, hgt=28):
 def chart(h):
     win = [(x[0], x[1]) for x in h[-52:]]
     if len(win) < 2:
-        return '<p class="note">아직 한 주치 기록만 있어요. 다음 주부터 가격 흐름이 그려져요.</p>'
+        return '<p class="note">아직 한 번의 조사 기록만 있어요. 다음 조사부터 가격 흐름이 그려져요.</p>'
     W, H, L, R_, T, B = 720, 260, 64, 16, 16, 30
     vals = [v for _, v in win]; lo, hi = min(vals), max(vals); rng = (hi - lo) or max(1, hi * 0.02)
     lo_a, hi_a = lo - rng * 0.12, hi + rng * 0.12
@@ -62,7 +62,7 @@ def chart(h):
     i_lo = max(i for i, (_, v) in enumerate(win) if v == lo)
     grid = "".join(f'<line class="grid" x1="{L}" x2="{W - R_}" y1="{Y(v):.1f}" y2="{Y(v):.1f}"/>'
                    f'<text class="ax" x="{L - 8}" y="{Y(v) + 4:.1f}" text-anchor="end">{int(v):,}</text>' for v in ((lo, hi) if hi > lo else (lo,)))
-    return (f'<svg class="chart" viewBox="0 0 {W} {H}" role="img" aria-label="최근 {len(win)}주 평균 판매가 흐름">{grid}'
+    return (f'<svg class="chart" viewBox="0 0 {W} {H}" role="img" aria-label="최근 {len(win)}번 조사의 평균 판매가 흐름">{grid}'
             f'<polyline class="line" points="{line}"/>'
             f'<circle class="dot-lo" cx="{X(i_lo):.1f}" cy="{Y(lo):.1f}" r="4.5"/>'
             f'<circle class="dot-now" cx="{X(len(win) - 1):.1f}" cy="{Y(vals[-1]):.1f}" r="4.5"/>'
@@ -119,7 +119,7 @@ def page(path, title, desc, body, depth=0, jsonld=""):
 <link rel="stylesheet" href="{R}assets/style.css">{head_extra}{jsonld}</head>
 <body><header class="top"><div class="wrap bar"><a class="logo" href="{R}index.html">{esc(SITE)}</a><nav>{nav}</nav></div></header>
 <main class="wrap">{body}</main>
-<footer class="wrap foot"><p>가격 출처: 한국소비자원 참가격 「생필품 가격 정보」(공공데이터포털, 공공누리 제1유형). 매주 금요일 전국 조사 매장의 판매가이며, 매장과 시점에 따라 실제 가격은 다를 수 있습니다.</p>
+<footer class="wrap foot"><p>가격 출처: 한국소비자원 참가격 「생필품 가격 정보」(공공데이터포털, 공공누리 제1유형). 금요일마다 조사한 전국 매장의 판매가이며, 매장과 시점에 따라 실제 가격은 다를 수 있습니다.</p>
 <p><a href="{R}about.html">이 사이트는</a> · <a href="{R}privacy.html">개인정보 처리방침</a> · <a href="{R}rss.xml">RSS</a></p></footer></body></html>"""
     full = os.path.join(OUT, path)
     os.makedirs(os.path.dirname(full), exist_ok=True)
@@ -128,7 +128,7 @@ def page(path, title, desc, body, depth=0, jsonld=""):
 
 def row(g, depth=0, show_cat=True):
     R = "../" * depth; s = g["s"]
-    badge = '<span class="low">반년 최저</span>' if s["is_low"] else ""
+    badge = '<span class="low">기록 최저</span>' if s["is_low"] else ""
     sub = " · ".join(x for x in ((g["top"] if show_cat else g["cls"]), g["size"]) if x)
     return (f'<li class="item noimg-row"><div class="name"><span class="cat">{esc(sub)}</span><a href="{R}p/{g["id"]}.html">{esc(g["name"])}</a></div>'
             f'<div class="trend">{spark(g["history"])}</div>'
@@ -150,7 +150,7 @@ def sentence(g):
     t = sorted((L.get("types") or {}).items(), key=lambda x: x[1])
     if len(t) >= 2 and t[-1][1] > t[0][1]: out.append(f"업태별 평균은 {iga(t[0][0])} {won(t[0][1])}으로 가장 낮고 {iga(t[-1][0])} {won(t[-1][1])}으로 가장 높습니다.")
     if s["weeks"] >= 4 and s["hi"] > s["lo"]:
-        out.append(f"기록한 최근 {min(s['weeks'], 26)}주 동안 평균가가 가장 낮았던 때는 {kday(s['lo_day'])}의 {won(s['lo'])}, 가장 높았던 때는 {kday(s['hi_day'])}의 {won(s['hi'])}입니다.")
+        out.append(f"기록한 최근 {min(s['weeks'], 26)}번의 조사에서 평균가가 가장 낮았던 때는 {kday(s['lo_day'])}의 {won(s['lo'])}, 가장 높았던 때는 {kday(s['hi_day'])}의 {won(s['hi'])}입니다.")
     if L.get("sale"): out.append(f"이번 조사에서 {L['sale']}개 매장이 할인 중이었습니다.")
     return " ".join(out)
 
@@ -167,12 +167,12 @@ def main():
     has_hist = any(g["s"]["prev"] for g in allg)
 
     b = [f'<section class="lede"><p class="date">{kday(DAY)} 조사 기준</p><h1>{esc(CFG.get("tagline", ""))}</h1>'
-         f'<p class="sub">생필품 {len(allg):,}개의 전국 매장 판매가를 매주 적습니다. 지난 조사보다 내린 품목 {len(drops)}개, 오른 품목 {len(rises)}개.</p></section>']
+         f'<p class="sub">생필품 {len(allg):,}개의 전국 매장 판매가를 조사 때마다 적습니다. 지난 조사보다 내린 품목 {len(drops)}개, 오른 품목 {len(rises)}개.</p></section>']
     if not allg:
         b.append('<section><h2>첫 기록을 기다리는 중</h2><p class="note">첫 가격 수집이 끝나면 이 자리에 목록이 나옵니다.</p></section>')
     if drops: b.append(f'<section><h2>지난 조사보다 내린 품목</h2><ul class="list">{"".join(row(g) for g in drops[:20])}</ul></section>')
     elif has_hist: b.append('<section><h2>지난 조사보다 내린 품목</h2><p class="note">이번 주는 1% 넘게 내린 품목이 없어요.</p></section>')
-    if lows: b.append(f'<section><h2>지금이 최근 반년 중 가장 싼 품목</h2><ul class="list">{"".join(row(g) for g in lows[:12])}</ul></section>')
+    if lows: b.append(f'<section><h2>지금이 기록한 기간 중 가장 싼 품목</h2><ul class="list">{"".join(row(g) for g in lows[:12])}</ul></section>')
     b.append(partner())
     if rises: b.append(f'<section><h2>지난 조사보다 오른 품목</h2><ul class="list">{"".join(row(g) for g in rises[:12])}</ul></section>')
     if CATS: b.append('<section><h2>종류별로 보기</h2><div class="cats">' + "".join(
@@ -183,7 +183,7 @@ def main():
         gs = [g for g in allg if g["slug"] == c["slug"]]
         groups = {}
         for g in gs: groups.setdefault(g["cls"] or c["name"], []).append(g)
-        body = [f'<section class="lede"><p class="date">{kday(DAY)} 조사 기준</p><h1>{esc(c["name"])} 가격</h1><p class="sub">{len(gs)}개 품목의 전국 평균 판매가와 반년 흐름.</p></section>']
+        body = [f'<section class="lede"><p class="date">{kday(DAY)} 조사 기준</p><h1>{esc(c["name"])} 가격</h1><p class="sub">{len(gs)}개 품목의 전국 평균 판매가와 흐름.</p></section>']
         for k in sorted(groups): body.append(f'<section><h2>{esc(k)}</h2><ul class="list">{"".join(row(g, 1, False) for g in groups[k])}</ul></section>')
         body.append(partner())
         page(f"c/{c['slug']}.html", f"{c['name']} 가격 흐름 | {SITE}", f"{c['name']} {len(gs)}개 품목의 이번 주 평균 판매가와 지난 조사 대비 변화.", "".join(body), 1)
@@ -195,12 +195,12 @@ def main():
         tbl = "".join(f'<div class="bar-row"><span>{esc(t)}</span><i style="width:{v / tmax * 100:.0f}%"></i><b>{won(v)}</b></div>' for t, v in types)
         cheap = "".join(f'<li><b>{won(c["p"])}</b><span>{esc(c["name"])}</span><small>{esc(" · ".join(x for x in (c["type"], c["area"]) if x))}</small></li>' for c in L.get("cheap", []))
         facts = [("전국 평균", won(s["cur"])), ("지난 조사 대비", delta(s)), ("이번 주 최저 매장", won(s["min"])), ("이번 주 최고 매장", won(s["max"])),
-                 ("조사 매장 수", f'{s["n"]}곳'), ("기록한 기간", f'{s["weeks"]}주')]
+                 ("조사 매장 수", f'{s["n"]}곳'), ("기록한 조사", f'{s["weeks"]}번')]
         if g["size"]: facts.insert(0, ("용량", esc(g["size"])))
         sib = [x for x in allg if x["cls"] == g["cls"] and x["id"] != g["id"] and g["cls"]][:6]
         body = (f'<p class="crumb"><a href="../c/{g["slug"]}.html">{esc(g["top"])}</a>{" › " + esc(g["cls"]) if g["cls"] else ""}</p>'
                 f'<article class="prod solo"><div><h1>{esc(g["name"])}</h1>'
-                f'<p class="big">{won(s["cur"])} <small class="unit">전국 평균</small> {"<span class=low>반년 최저</span>" if s["is_low"] else ""}</p>'
+                f'<p class="big">{won(s["cur"])} <small class="unit">전국 평균</small> {"<span class=low>기록 최저</span>" if s["is_low"] else ""}</p>'
                 f'<p class="say">{esc(sentence(g))}</p></div></article>'
                 f'<section><h2>평균 판매가 흐름</h2>{chart(g["history"])}<p class="legend"><span class="k-now"></span>이번 조사 <span class="k-lo"></span>기간 중 최저</p></section>'
                 + (f'<section><h2>어디가 쌀까, 업태별 평균</h2><div class="bars">{tbl}</div></section>' if tbl else "")
@@ -213,8 +213,8 @@ def main():
     contact = f'<p>문의: {esc(CFG["contact"])}</p>' if CFG.get("contact") else ""
     page("about.html", f"이 사이트는 | {SITE}", "가격을 어떻게 모으고 무엇을 보여 주는지 설명합니다.",
          f'<section class="lede"><h1>이 사이트는</h1></section><section class="doc"><p>{esc(SITE)}는 라면, 우유, 세제 같은 생필품이 지난주보다 올랐는지 내렸는지, 어떤 업태에서 더 싼지 한눈에 보도록 정리한 개인 운영 사이트입니다.</p>'
-         '<h2>가격 출처</h2><p>한국소비자원이 참가격(price.go.kr)을 통해 공개하는 「생필품 가격 정보」를 공공데이터포털 오픈API로 받아 사용합니다. 이 자료는 공공누리 제1유형(출처표시)으로 개방된 공공저작물이며, 매주 금요일 전국 조사 매장의 판매가입니다.</p>'
-         '<h2>이 사이트가 더한 것</h2><p>매장별 가격을 품목마다 전국 평균, 최저, 최고, 업태별 평균으로 다시 계산하고, 주마다 쌓아 흐름을 그렸습니다. 평균에서 크게 벗어난 입력 오류로 보이는 값은 계산에서 뺐습니다. 모든 문장은 숫자에서 자동으로 만들어지며, 한국소비자원의 공식 통계나 의견이 아닙니다.</p>'
+         '<h2>가격 출처</h2><p>한국소비자원이 참가격(price.go.kr)을 통해 공개하는 「생필품 가격 정보」를 공공데이터포털 오픈API로 받아 사용합니다. 이 자료는 공공누리 제1유형(출처표시)으로 개방된 공공저작물이며, 금요일에 조사한 전국 매장의 판매가이고 보통 격주로 올라옵니다.</p>'
+         '<h2>이 사이트가 더한 것</h2><p>매장별 가격을 품목마다 전국 평균, 최저, 최고, 업태별 평균으로 다시 계산하고, 조사 때마다 쌓아 흐름을 그렸습니다. 평균에서 크게 벗어난 입력 오류로 보이는 값은 계산에서 뺐습니다. 모든 문장은 숫자에서 자동으로 만들어지며, 한국소비자원의 공식 통계나 의견이 아닙니다.</p>'
          '<h2>광고와 수수료</h2><p>이 사이트에는 광고가 표시될 수 있고, 쿠팡 파트너스 영역을 통해 구매가 일어나면 운영자가 일정액의 수수료를 받을 수 있습니다. 해당 영역에는 그 사실을 따로 적어 둡니다. 가격 기록과 정렬 순서는 광고나 수수료와 무관합니다.</p>'
          f'{contact}</section>')
     page("privacy.html", f"개인정보 처리방침 | {SITE}", "개인정보 처리방침",
@@ -240,7 +240,7 @@ def main():
             f.write(f"google.com, {CFG['adsense_client'].replace('ca-', '')}, DIRECT, f08c47fec0942fa0\n")
     open(os.path.join(OUT, ".nojekyll"), "w").close()
     page("404.html", f"없는 페이지 | {SITE}", "없는 페이지", '<section class="lede"><h1>찾는 페이지가 없어요</h1><p class="sub"><a href="' + ((BASE + '/') if BASE else 'index.html') + '">첫 화면</a>에서 다시 찾아보세요.</p></section>')
-    print(f"사이트 생성: 품목 {len(allg)}개, 내림 {len(drops)}개, 오름 {len(rises)}개, 반년 최저 {len(lows)}개")
+    print(f"사이트 생성: 품목 {len(allg)}개, 내림 {len(drops)}개, 오름 {len(rises)}개, 기록 최저 {len(lows)}개")
 
 
 if __name__ == "__main__":

@@ -22,4 +22,8 @@ def fake(op, **p):
               "goodPrice": int(base[p["goodId"]] * mult[s[2]] * (1 + r.uniform(-0.06, 0.06)) / 10) * 10, "plusoneYn": "N", "goodDcYn": "Y" if r.random() < .2 else "N"} for s in S])
     return collect.parse(t)[0]
 collect.time.sleep = lambda s: None
+_f = fake
+def fake(op, **p):
+    if op == "getProductPriceInfoSvc" and (int(p["goodInspectDay"][6:]) + int(p["goodInspectDay"][4:6])) % 2: return []   # 격주 조사 흉내
+    return _f(op, **p)
 print(collect.run(fake, date(2026, 11, 12)))
