@@ -1,28 +1,30 @@
-# 실제 API 응답 형식을 확인하는 임시 점검 파일
-import os, urllib.request, urllib.parse, urllib.error
+# 실제 API에서 어느 조사일·상품·매장에 가격이 있는지 확인하는 임시 점검 파일
+import os, re, urllib.request, urllib.parse, urllib.error
 from datetime import date, timedelta
 K = os.environ["DATA_KEY"]; K = urllib.parse.unquote(K) if "%" in K else K
 B = "https://apis.data.go.kr/B551919/ProductPriceInfoService"
 def get(path, **p):
-    for kn in ("serviceKey", "ServiceKey"):
-        url = f"{B}/{path}?" + urllib.parse.urlencode({kn: K, **p})
-        try:
-            with urllib.request.urlopen(url, timeout=40) as r: body, code = r.read().decode("utf-8", "replace"), r.status
-        except urllib.error.HTTPError as e: body, code = e.read().decode("utf-8", "replace"), e.code
-        except Exception as e: body, code = str(e), 0
-        print(f"--- {path} {kn} {p} -> {code} len={len(body)}\n{body[:700].replace(K, '***')}\n")
-        if code == 200 and len(body) > 200: return body
-    return ""
-d = date.today(); d -= timedelta(days=(d.weekday() - 4) % 7)
-for op in ("getProductInfoSvc.do", "getProductInfoSvc"):
-    b = get(op, goodId="1000")
-    if b: break
-for op in ("getStoreInfoSvc.do", "getStoreInfoSvc"):
-    if get(op, entpId="115"): break
-for op in ("getStandardInfoSvc.do", "getStandardInfoSvc"):
-    if get(op, classCode="AL"): break
-for wk in (1, 2, 4):
-    day = (d - timedelta(weeks=wk)).strftime("%Y%m%d")
-    for op in ("getProductPriceInfoSvc.do", "getProductPriceInfoSvc"):
-        for extra in ({"goodId": "1000"}, {"entpId": "115"}, {"goodId": "1000", "pageNo": "1", "numOfRows": "10"}):
-            get(op, goodInspectDay=day, **extra)
+    url = f"{B}/{path}?" + urllib.parse.urlencode({"serviceKey": K, **p})
+    try:
+        with urllib.request.urlopen(url, timeout=60) as r: return r.read().decode("utf-8", "replace")
+    except urllib.error.HTTPError as e: return f"HTTP{e.code} " + e.read().decode("utf-8", "replace")[:200]
+    except Exception as e: return "ERR " + str(e)
+goods = re.findall(r"<goodId>(\d+)</goodId>\s*<goodName>([^<]*)", get("getProductInfoSvc.do"))
+stores = re.findall(r"<entpId>(\d+)</entpId>\s*<entpName>([^<]*)</entpName>\s*<entpTypeCode>([^<]*)", get("getStoreInfoSvc.do"))
+print("상품 수", len(goods), goods[:5], goods[-5:]); print("매장 수", len(stores), stores[:3], stores[-3:])
+for c in ("BU", "AR", "UT"):
+    print(c, re.findall(r"<code>([^<]*)</code>\s*<codeName>([^<]*)", get("getStandardInfoSvc.do", classCode=c))[:12])
+gs = [goods[0][0], goods[len(goods)//2][0], goods[-1][0]]; ss = [stores[10][0], stores[len(stores)//2][0], stores[-1][0]]
+d = date.today()
+for back in list(range(0, 21)) + [28, 35, 42, 56, 84, 180, 365, 730]:
+    day = (d - timedelta(days=back)).strftime("%Y%m%d"); out = []
+    for kind, ids in (("goodId", gs), ("entpId", ss)):
+        for i in ids:
+            b = get("getProductPriceInfoSvc", goodInspectDay=day, **{kind: i})
+            out.append(f"{kind[0]}{i}:{b.count('<goodPrice>') if not b.startswith(('HTTP','ERR')) else b[:40]}")
+    print(day, (d - timedelta(days=back)).strftime("%a"), " ".join(out))
+b = ""
+for back in range(0, 60):
+    day = (d - timedelta(days=back)).strftime("%Y%m%d")
+    b = get("getProductPriceInfoSvc", goodInspectDay=day, entpId=ss[1])
+    if "<goodPrice>" in b: print("예시", day, b[:900]); break
