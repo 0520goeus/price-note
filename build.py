@@ -109,7 +109,7 @@ def page(path, title, desc, body, depth=0, jsonld=""):
     if CFG.get("adsense_client"):
         head_extra += f'<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={esc(CFG["adsense_client"])}" crossorigin="anonymous"></script>'
     canon = f'<link rel="canonical" href="{BASE}/{path}">' if BASE else ""
-    nav = "".join(f'<a href="{R}c/{c["slug"]}.html">{esc(c["name"])}</a>' for c in CATS[:8])
+    nav = "".join(f'<a href="{R}c/{c["slug"]}.html">{esc(c["name"])}</a>' for c in CATS[:6]) + f'<a href="{R}rise.html">많이 오른 품목</a><a href="{R}gap.html">어디가 쌀까</a>'
     doc = f"""<!doctype html>
 <html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{esc(title)}</title><meta name="description" content="{esc(desc)}">{canon}
@@ -175,6 +175,7 @@ def main():
     if lows: b.append(f'<section><h2>지금이 기록한 기간 중 가장 싼 품목</h2><ul class="list">{"".join(row(g) for g in lows[:12])}</ul></section>')
     b.append(partner())
     if rises: b.append(f'<section><h2>지난 조사보다 오른 품목</h2><ul class="list">{"".join(row(g) for g in rises[:12])}</ul></section>')
+    if allg: b.append('<section><h2>순위로 보기</h2><div class="cats"><a href="rise.html"><b>많이 오른 품목</b><span>기록 기간 동안의 상승률 순위</span></a><a href="gap.html"><b>어디가 쌀까</b><span>업태별 가격 차이가 큰 품목</span></a></div></section>')
     if CATS: b.append('<section><h2>종류별로 보기</h2><div class="cats">' + "".join(
         f'<a href="c/{c["slug"]}.html"><b>{esc(c["name"])}</b><span>{c["n"]}개 품목</span></a>' for c in CATS) + "</div></section>")
     page("index.html", f"{SITE} | 생필품 가격, 지난주보다 올랐을까", f"{kday(DAY)} 조사 기준 생필품 {len(allg)}개의 전국 평균 판매가와 지난 조사 대비 변화.", "".join(b))
@@ -187,6 +188,34 @@ def main():
         for k in sorted(groups): body.append(f'<section><h2>{esc(k)}</h2><ul class="list">{"".join(row(g, 1, False) for g in groups[k])}</ul></section>')
         body.append(partner())
         page(f"c/{c['slug']}.html", f"{c['name']} 가격 흐름 | {SITE}", f"{c['name']} {len(gs)}개 품목의 이번 주 평균 판매가와 지난 조사 대비 변화.", "".join(body), 1)
+
+    # 순위 화면: 기록 기간 동안 많이 오른/내린 품목, 업태 간 가격 차이가 큰 품목
+    span = [g for g in allg if len(g["history"]) >= 3 and g["history"][0][1] > 0]
+    for g in span: g["chg"] = (g["history"][-1][1] - g["history"][0][1]) / g["history"][0][1] * 100
+    def rank_row(g, right, sub):
+        return (f'<li class="item noimg-row"><div class="name"><span class="cat">{esc(sub)}</span><a href="p/{g["id"]}.html">{esc(g["name"])}</a></div>'
+                f'<div class="trend">{spark(g["history"])}</div><div class="price">{right}</div></li>')
+    if span:
+        first = min(g["history"][0][0] for g in span)
+        up = sorted(span, key=lambda g: -g["chg"])[:40]; down = sorted(span, key=lambda g: g["chg"])[:20]
+        mk = lambda g: rank_row(g, f'<b>{won(g["s"]["cur"])}</b><span class="chg {"up" if g["chg"] > 0 else "down"}">{"▲" if g["chg"] > 0 else "▼"} {abs(g["chg"]):.1f}%</span>',
+                                f'{kday(g["history"][0][0])} {won(g["history"][0][1])}에서')
+        page("rise.html", f"최근 많이 오른 생필품 가격 순위 | {SITE}", f"{kday(first)}부터 {kday(DAY)}까지 전국 평균 판매가가 가장 많이 오른 생필품과 내린 생필품 순위.",
+             f'<section class="lede"><p class="date">{kday(first)} ~ {kday(DAY)}</p><h1>그동안 가장 많이 오른 생필품</h1><p class="sub">기록을 시작한 조사와 가장 최근 조사의 전국 평균 판매가를 비교했습니다.</p></section>'
+             f'<section><h2>많이 오른 품목</h2><ul class="list">{"".join(mk(g) for g in up if g["chg"] > 0) or "<li class=note>오른 품목이 없어요.</li>"}</ul></section>' + partner() +
+             f'<section><h2>오히려 내린 품목</h2><ul class="list">{"".join(mk(g) for g in down if g["chg"] < 0) or "<li class=note>내린 품목이 없어요.</li>"}</ul></section>')
+    gaps = []
+    for g in fresh:
+        t = sorted((g.get("latest", {}).get("types") or {}).items(), key=lambda x: x[1])
+        t = [x for x in t if x[0] != "제조사"]
+        if len(t) >= 2 and t[0][1] > 0: gaps.append((g, t[0], t[-1], (t[-1][1] - t[0][1]) / t[0][1] * 100))
+    gaps.sort(key=lambda x: -x[3])
+    if gaps:
+        page("gap.html", f"같은 물건, 어디가 쌀까: 업태별 가격 차이 순위 | {SITE}", f"{kday(DAY)} 조사에서 대형마트·편의점·슈퍼마켓·백화점 사이 평균 가격 차이가 큰 생필품 순위.",
+             f'<section class="lede"><p class="date">{kday(DAY)} 조사 기준</p><h1>같은 물건인데 파는 곳에 따라 얼마나 다를까</h1><p class="sub">업태별 평균 판매가가 가장 싼 곳과 가장 비싼 곳의 차이가 큰 순서입니다.</p></section>'
+             '<section><h2>가격 차이가 큰 품목</h2><ul class="list">' + "".join(
+                 rank_row(g, f'<b>{x[3]:.0f}% 차이</b><span class="chg flat">{esc(lo[0])} {won(lo[1])}</span><span class="chg flat">{esc(hi[0])} {won(hi[1])}</span>', g["cls"] or g["top"])
+                 for x in gaps[:50] for g, lo, hi in [x[:3]]) + "</ul></section>" + partner())
 
     for g in allg:
         s, L = g["s"], g.get("latest", {})
@@ -226,7 +255,7 @@ def main():
     with open(os.path.join(OUT, "robots.txt"), "w") as f:
         f.write("User-agent: *\nAllow: /\n" + (f"Sitemap: {BASE}/sitemap.xml\n" if BASE else ""))
     if BASE:
-        urls = ["index.html", "about.html", "privacy.html"] + [f"c/{c['slug']}.html" for c in CATS] + [f"p/{g['id']}.html" for g in allg]
+        urls = ["index.html", "about.html", "privacy.html"] + (["rise.html"] if span else []) + (["gap.html"] if gaps else []) + [f"c/{c['slug']}.html" for c in CATS] + [f"p/{g['id']}.html" for g in allg]
         with open(os.path.join(OUT, "sitemap.xml"), "w", encoding="utf-8") as f:
             f.write('<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' +
                     "".join(f"<url><loc>{BASE}/{u}</loc><lastmod>{DAY}</lastmod></url>" for u in urls) + "</urlset>")
@@ -239,6 +268,11 @@ def main():
         with open(os.path.join(OUT, "ads.txt"), "w") as f:
             f.write(f"google.com, {CFG['adsense_client'].replace('ca-', '')}, DIRECT, f08c47fec0942fa0\n")
     open(os.path.join(OUT, ".nojekyll"), "w").close()
+    if CFG.get("indexnow_key") and BASE:
+        with open(os.path.join(OUT, CFG["indexnow_key"] + ".txt"), "w") as f: f.write(CFG["indexnow_key"])
+        with open(os.path.join(OUT, "indexnow.json"), "w", encoding="utf-8") as f:
+            json.dump({"host": BASE.split("//")[1].split("/")[0], "key": CFG["indexnow_key"], "keyLocation": f"{BASE}/{CFG['indexnow_key']}.txt",
+                       "urlList": [f"{BASE}/"] + [f"{BASE}/{u}" for u in urls[3:]][:9000]}, f, ensure_ascii=False)
     page("404.html", f"없는 페이지 | {SITE}", "없는 페이지", '<section class="lede"><h1>찾는 페이지가 없어요</h1><p class="sub"><a href="' + ((BASE + '/') if BASE else 'index.html') + '">첫 화면</a>에서 다시 찾아보세요.</p></section>')
     print(f"사이트 생성: 품목 {len(allg)}개, 내림 {len(drops)}개, 오름 {len(rises)}개, 기록 최저 {len(lows)}개")
 

@@ -40,3 +40,10 @@ jobs:
           path: site
       - id: deploy
         uses: actions/deploy-pages@v4
+      - name: 검색엔진에 새 주소 알리기 (네이버, 빙)
+        continue-on-error: true
+        run: |
+          if [ -f site/indexnow.json ]; then
+            curl -s -o /dev/null -w "naver %{http_code}\n" -X POST -H "Content-Type: application/json; charset=utf-8" --data @site/indexnow.json https://searchadvisor.naver.com/indexnow || true
+            curl -s -o /dev/null -w "indexnow %{http_code}\n" -X POST -H "Content-Type: application/json; charset=utf-8" --data @site/indexnow.json https://api.indexnow.org/indexnow || true
+          fi
