@@ -120,7 +120,7 @@ def page(path, title, desc, body, depth=0, jsonld=""):
 <body><header class="top"><div class="wrap bar"><a class="logo" href="{R}index.html">{esc(SITE)}</a><nav>{nav}</nav></div></header>
 <main class="wrap">{body}</main>
 <footer class="wrap foot"><p>가격 출처: 한국소비자원 참가격 「생필품 가격 정보」(공공데이터포털, 공공누리 제1유형). 금요일마다 조사한 전국 매장의 판매가이며, 매장과 시점에 따라 실제 가격은 다를 수 있습니다.</p>
-<p><a href="{R}about.html">이 사이트는</a> · <a href="{R}privacy.html">개인정보 처리방침</a> · <a href="{R}rss.xml">RSS</a></p></footer></body></html>"""
+<p><a href="{R}about.html">이 사이트는</a> · <a href="{R}privacy.html">개인정보 처리방침</a> · <a href="https://0520goeus.github.io/elec-calc/" rel="noopener">전기세 얼마</a> · <a href="https://0520goeus.github.io/life-money-lab/" rel="noopener">생활비 물가 연구소</a> · <a href="https://lifefixnote-kr.blogspot.com/" rel="noopener">생활해결 노트</a> · <a href="{R}rss.xml">RSS</a></p></footer></body></html>"""
     full = os.path.join(OUT, path)
     os.makedirs(os.path.dirname(full), exist_ok=True)
     with open(full, "w", encoding="utf-8") as f: f.write(doc)
